@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "dbt-incremental-strategies/**"
+      - "dbt-snapshots/**"
   workflow_dispatch:
 
 permissions:
@@ -29,7 +30,7 @@ jobs:
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dbt-incremental-strategies
+          path: .
 
       - id: deployment
         uses: actions/deploy-pages@v4

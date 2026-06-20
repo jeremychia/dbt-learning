@@ -192,11 +192,24 @@ pre{background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:
   .sim-header{flex-direction:column;align-items:flex-start}
   .run-btn{flex:1;justify-content:center}
 }
+
+/* page nav */
+.page-nav{display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 24px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:3px;z-index:150}
+.page-nav-link{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;border:1px solid var(--border);font-size:.78rem;font-weight:700;color:var(--muted);text-decoration:none;transition:all .15s;white-space:nowrap}
+.page-nav-link:hover{border-color:var(--teal);color:var(--text)}
+.page-nav-link.active{background:var(--surface2);border-color:var(--teal);color:var(--teal)}
+.page-nav-sep{color:var(--dim);font-size:.7rem}
 </style>
 </head>
 <body>
 
 <div id="prog"><div id="prog-fill"></div></div>
+
+<nav class="page-nav" aria-label="Guide pages">
+  <a class="page-nav-link" href="../dbt-incremental-strategies/index.html">Incremental Strategies</a>
+  <span class="page-nav-sep">•</span>
+  <a class="page-nav-link active" href="#">Snapshots</a>
+</nav>
 
 <div class="hero">
   <h1>dbt Snapshots</h1>
