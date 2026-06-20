@@ -1,0 +1,1879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>dbt Snapshots — Interactive Visual Guide</title>
+<style>
+:root {
+  --bg:#0f1117; --surface:#1a1d27; --surface2:#222639; --surface3:#2a2e45;
+  --border:#2e3250; --text:#e2e8f0; --muted:#8892b0; --dim:#4a5568;
+  --orange:#f97316; --indigo:#818cf8; --green:#34d399; --red:#f87171;
+  --yellow:#fbbf24; --blue:#60a5fa; --purple:#c084fc; --teal:#2dd4bf;
+  --s-ts:#34d399; --s-check:#818cf8;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;font-size:14px}
+
+#prog{height:3px;background:var(--border);position:sticky;top:0;z-index:200}
+#prog-fill{height:100%;background:linear-gradient(90deg,var(--teal),var(--indigo));width:0%;transition:width .25s}
+
+.hero{padding:52px 24px 40px;text-align:center;border-bottom:1px solid var(--border);background:linear-gradient(160deg,#1a1d27,#0f1117)}
+.hero h1{font-size:clamp(1.8rem,5vw,2.8rem);font-weight:800;letter-spacing:-.03em;
+  background:linear-gradient(90deg,var(--teal),var(--indigo));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:10px}
+.hero p{color:var(--muted);font-size:1rem;max-width:560px;margin:0 auto}
+
+.wrap{max-width:1200px;margin:0 auto;padding:40px 32px 100px}
+.sec-hd{margin-bottom:28px}
+.sec-label{font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--teal);margin-bottom:6px}
+.sec-title{font-size:1.25rem;font-weight:700;margin-bottom:6px}
+.sec-sub{color:var(--muted);font-size:.88rem}
+section{margin-bottom:64px;padding-top:8px}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px 28px;margin-bottom:16px}
+.card h3{font-size:1rem;font-weight:700;margin-bottom:8px}
+.card p{color:var(--muted);font-size:.88rem}
+
+/* strategy tabs */
+.strat-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0}
+.strat-tab{padding:7px 18px;border-radius:20px;border:2px solid var(--border);background:var(--surface2);
+  cursor:pointer;font-size:.82rem;font-weight:700;transition:all .15s;color:var(--muted)}
+.strat-tab:hover{border-color:var(--indigo);color:var(--text)}
+.strat-tab:focus-visible{outline:2px solid var(--indigo);outline-offset:2px}
+.strat-tab.active{color:#fff}
+.strat-tab[data-s="ts"].active{border-color:var(--s-ts);background:#064e3b40;color:var(--s-ts)}
+.strat-tab[data-s="check"].active{border-color:var(--s-check);background:#1e1b4b40;color:var(--s-check)}
+
+/* simulator */
+.sim-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px}
+.sim-header{background:var(--surface2);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.sim-title{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.sim-step-counter{font-size:.78rem;color:var(--muted);background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;white-space:nowrap}
+.sim-body{padding:24px 20px;display:grid;gap:20px}
+
+/* db table */
+.dbt{border:1px solid var(--border);border-radius:8px;width:100%}
+.dbt-head{background:var(--surface2);padding:6px 12px;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.dbt-cols{display:flex;background:#1a1d2780;border-bottom:1px solid var(--border)}
+.dbt-col{padding:4px 8px;font-size:.68rem;font-weight:700;color:var(--dim);flex:1;min-width:0;white-space:nowrap}
+.dbt-row{display:flex;border-top:1px solid var(--border);transition:all .35s;font-family:'Fira Code',monospace;font-size:.7rem}
+.dbt-row .c{padding:5px 8px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dbt-row.r-new{background:#064e3b28}
+.dbt-row.r-upd{background:#1e3a5f35}
+.dbt-row.r-exp{background:#7f1d1d25;opacity:.7}
+.dbt-row.r-cur{background:#06304828}
+.dbt-row.r-del{background:#7f1d1d30;opacity:.55}
+
+.steps{display:flex;flex-direction:column;gap:0}
+.step{padding:10px 16px;border-left:2px solid var(--border);margin-left:8px;font-size:.82rem;color:var(--muted);position:relative;transition:all .25s}
+.step::before{content:'';position:absolute;left:-5px;top:14px;width:8px;height:8px;border-radius:50%;background:var(--border);transition:background .25s}
+.step.active{color:var(--text);border-left-color:var(--teal)}
+.step.active::before{background:var(--teal)}
+.step.done{color:var(--green);border-left-color:var(--green)}
+.step.done::before{background:var(--green)}
+.step .step-sql{font-family:'Fira Code',monospace;font-size:.75rem;background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-top:6px;color:var(--blue);white-space:pre-wrap;word-break:break-word}
+.step .step-label{font-weight:600;margin-bottom:2px}
+
+.run-btn{display:inline-flex;align-items:center;gap:6px;background:var(--teal);color:#0f1117;font-weight:700;font-size:.85rem;padding:10px 20px;border-radius:8px;border:none;cursor:pointer;transition:opacity .15s;white-space:nowrap}
+.run-btn:hover:not(:disabled){opacity:.85}
+.run-btn:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.run-btn:disabled{opacity:.35;cursor:not-allowed}
+.run-btn.secondary{background:var(--surface2);border:1px solid var(--border);color:var(--text)}
+.run-btn.secondary:focus-visible{outline:2px solid var(--indigo);outline-offset:2px}
+
+/* toggles */
+.toggles{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.toggle-group{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:.8rem}
+.toggle-group label{color:var(--muted);font-weight:600;white-space:nowrap}
+.toggle-group select{background:transparent;border:none;color:var(--text);font-size:.8rem;outline:none;cursor:pointer;padding:2px 4px}
+.toggle-group select option{background:var(--surface2)}
+.switch{position:relative;width:36px;height:20px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:var(--border);border-radius:20px;cursor:pointer;transition:.2s}
+.slider::before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+input:checked+.slider{background:var(--teal)}
+input:checked+.slider::before{transform:translateX(16px)}
+
+/* scenario grid */
+.perm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-top:16px}
+.perm-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;cursor:pointer;transition:all .2s}
+.perm-card:hover,.perm-card.active{border-color:var(--teal);background:#2a2e45}
+.perm-card .perm-badge{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:2px 8px;border-radius:4px;display:inline-block;margin-bottom:8px}
+.perm-card .perm-title{font-size:.88rem;font-weight:700;margin-bottom:4px}
+.perm-card .perm-sub{font-size:.78rem;color:var(--muted);line-height:1.5}
+
+/* note */
+.note{background:#1a1d2780;border:1px solid var(--border);border-left:3px solid var(--indigo);border-radius:8px;padding:10px 14px;font-size:.8rem;color:var(--muted);margin:12px 0}
+.note strong{color:var(--indigo)}
+.note.warn{border-left-color:var(--yellow)}
+.note.warn strong{color:var(--yellow)}
+.note.danger{border-left-color:var(--red)}
+.note.danger strong{color:var(--red)}
+.note.ok{border-left-color:var(--green)}
+.note.ok strong{color:var(--green)}
+
+/* code */
+pre{background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:14px 18px;overflow-x:auto;font-family:'Fira Code','Cascadia Code',monospace;font-size:.78rem;line-height:1.75;margin:10px 0}
+.kw{color:#c084fc} .str{color:#34d399} .cm{color:#4a5568;font-style:italic}
+.fn{color:#60a5fa} .var{color:#f97316} .hl{background:#fbbf2420;border-radius:2px;padding:0 2px}
+.meta{color:#2dd4bf}
+
+/* meta columns legend */
+.meta-cols{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin:14px 0}
+.meta-col-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.meta-col-name{font-family:'Fira Code',monospace;color:var(--teal);font-size:.8rem;font-weight:700;margin-bottom:4px}
+.meta-col-desc{font-size:.78rem;color:var(--muted)}
+
+/* quiz */
+.quiz-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px 28px;margin-bottom:20px}
+.q-prog{font-size:.75rem;color:var(--muted);margin-bottom:16px}
+.q-text{font-size:.95rem;font-weight:500;margin-bottom:14px}
+.q-opts{display:grid;gap:8px;margin-bottom:14px}
+.q-opt{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;cursor:pointer;font-size:.85rem;color:var(--text);text-align:left;transition:all .15s;width:100%}
+.q-opt:hover:not(:disabled){border-color:var(--teal)}
+.q-opt.correct{border-color:var(--green);background:#064e3b35;color:var(--green)}
+.q-opt.wrong{border-color:var(--red);background:#7f1d1d35;color:var(--red)}
+.q-opt.reveal{border-color:var(--green);background:#064e3b20}
+.q-fb{font-size:.85rem;padding:10px 14px;border-radius:8px;margin-bottom:10px;display:none}
+.q-fb.show{display:block}
+.q-fb.ok{background:#064e3b35;border:1px solid var(--green);color:var(--green)}
+.q-fb.err{background:#7f1d1d35;border:1px solid var(--red);color:var(--red)}
+.q-score{text-align:center;padding:16px;display:none}
+.q-score.show{display:block}
+.score-n{font-size:2.8rem;font-weight:900;background:linear-gradient(90deg,var(--teal),var(--indigo));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+/* legend */
+.leg{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:.73rem;color:var(--muted)}
+.leg-item{display:flex;align-items:center;gap:5px}
+.leg-dot{width:9px;height:9px;border-radius:2px}
+.ld-new{background:#34d39950;border:1px solid var(--green)}
+.ld-exp{background:#f8717150;border:1px solid var(--red)}
+.ld-cur{background:#60a5fa30;border:1px solid var(--blue)}
+.ld-del{background:#7f1d1d50;border:1px dashed var(--red)}
+
+/* adapt table */
+.adapt-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.adapt-table th{background:var(--surface2);color:var(--muted);font-weight:700;font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;padding:8px 12px;border-bottom:1px solid var(--border);text-align:center}
+.adapt-table th:first-child{text-align:left}
+.adapt-table td{padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;color:var(--dim)}
+.adapt-table td:first-child{text-align:left;color:var(--text);font-weight:600}
+.adapt-table tr:hover td{background:var(--surface2)}
+
+/* sidenav */
+.sidenav{position:fixed;right:16px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px;z-index:100}
+.snav-item{display:flex;align-items:center;gap:8px;cursor:pointer;position:relative}
+.snav-dot{width:7px;height:7px;border-radius:50%;background:var(--dim);transition:all .2s;flex-shrink:0}
+.snav-label{font-size:.68rem;color:var(--muted);white-space:nowrap;opacity:0;transform:translateX(4px);transition:all .2s;pointer-events:none;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 7px;position:absolute;right:16px}
+.snav-item:hover .snav-label{opacity:1;transform:translateX(0)}
+.snav-item:hover .snav-dot,.snav-item.on .snav-dot{background:var(--teal);width:9px;height:9px}
+
+/* timeline vis */
+.timeline-vis{position:relative;margin:16px 0}
+.tl-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.tl-label{font-size:.68rem;color:var(--muted);width:80px;flex-shrink:0;font-family:'Fira Code',monospace}
+.tl-bar{flex:1;height:32px;background:var(--surface3);border-radius:4px;position:relative;overflow:visible}
+.tl-seg{position:absolute;top:0;height:100%;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:700;transition:all .4s;white-space:nowrap;overflow:hidden}
+.tl-seg.valid{background:#064e3b50;border:1px solid var(--green);color:var(--green)}
+.tl-seg.expired{background:#7f1d1d30;border:1px solid #f8717170;color:var(--red)}
+.tl-seg.new-ver{background:#1e3a5f50;border:1px solid var(--blue);color:var(--blue)}
+.tl-seg.deleted{background:#3b0764;border:1px dashed var(--purple);color:var(--purple)}
+
+.pred-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.pred-table th{background:var(--surface3);color:var(--muted);font-weight:700;font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.pred-table td{padding:8px 12px;border-bottom:1px solid var(--border)}
+.pred-table tr:hover td{background:var(--surface2)}
+.pred-table .alias{font-family:'Fira Code',monospace;color:var(--teal);font-size:.75rem}
+.pred-table .desc{color:var(--muted)}
+
+@media(max-width:700px){.sim-sql-col{display:none}}
+@media(max-width:640px){
+  .sidenav{display:none}
+  .wrap{padding:24px 14px 80px}
+  .sim-header{flex-direction:column;align-items:flex-start}
+  .run-btn{flex:1;justify-content:center}
+}
+</style>
+</head>
+<body>
+
+<div id="prog"><div id="prog-fill"></div></div>
+
+<div class="hero">
+  <h1>dbt Snapshots</h1>
+  <p>Step through Type-2 SCD mechanics, compare timestamp vs. check strategies, and see exactly what SQL dbt generates on every run.</p>
+</div>
+
+<nav class="sidenav" id="sidenav" aria-label="Page sections"></nav>
+<div class="wrap">
+
+<!-- ════════════════════════════════════════
+     SECTION 1 — What is a snapshot?
+════════════════════════════════════════ -->
+<section id="s-concept">
+  <div class="sec-hd">
+    <div class="sec-label">Concept</div>
+    <div class="sec-title">The problem snapshots solve</div>
+    <div class="sec-sub">Source tables overwrite rows in place. Snapshots capture history before it's lost.</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+    <div class="card" style="border-left:3px solid var(--red)">
+      <h3 style="color:var(--red)">Source table — mutable</h3>
+      <p style="margin-bottom:14px">The order was <em>updated</em>. Yesterday's state is gone.</p>
+      <div class="dbt">
+        <div class="dbt-head">orders (source)</div>
+        <div class="dbt-cols">
+          <div class="dbt-col">id</div>
+          <div class="dbt-col">status</div>
+          <div class="dbt-col">updated_at</div>
+        </div>
+        <div class="dbt-row r-exp">
+          <div class="c" style="color:var(--muted);text-decoration:line-through">1</div>
+          <div class="c" style="color:var(--muted);text-decoration:line-through">pending</div>
+          <div class="c" style="color:var(--muted);text-decoration:line-through">2024-01-01</div>
+        </div>
+        <div class="dbt-row r-new">
+          <div class="c">1</div>
+          <div class="c" style="color:var(--green)">shipped</div>
+          <div class="c">2024-01-03</div>
+        </div>
+        <div class="dbt-row">
+          <div class="c">2</div>
+          <div class="c">pending</div>
+          <div class="c">2024-01-02</div>
+        </div>
+      </div>
+      <div class="note danger" style="margin-top:12px"><strong>History lost:</strong> You can never know order 1 was once "pending".</div>
+    </div>
+
+    <div class="card" style="border-left:3px solid var(--green)">
+      <h3 style="color:var(--green)">Snapshot table — immutable history</h3>
+      <p style="margin-bottom:14px">dbt adds <code>dbt_valid_from</code> / <code>dbt_valid_to</code> to track each version.</p>
+      <div class="dbt">
+        <div class="dbt-head">orders_snapshot</div>
+        <div class="dbt-cols">
+          <div class="dbt-col">id</div>
+          <div class="dbt-col">status</div>
+          <div class="dbt-col">dbt_valid_from</div>
+          <div class="dbt-col">dbt_valid_to</div>
+        </div>
+        <div class="dbt-row r-exp">
+          <div class="c">1</div>
+          <div class="c" style="color:var(--yellow)">pending</div>
+          <div class="c" style="color:var(--muted)">2024-01-01</div>
+          <div class="c" style="color:var(--red)">2024-01-03</div>
+        </div>
+        <div class="dbt-row r-cur">
+          <div class="c">1</div>
+          <div class="c" style="color:var(--green)">shipped</div>
+          <div class="c" style="color:var(--muted)">2024-01-03</div>
+          <div class="c" style="color:var(--teal)">NULL</div>
+        </div>
+        <div class="dbt-row r-cur">
+          <div class="c">2</div>
+          <div class="c">pending</div>
+          <div class="c" style="color:var(--muted)">2024-01-02</div>
+          <div class="c" style="color:var(--teal)">NULL</div>
+        </div>
+      </div>
+      <div class="note ok" style="margin-top:12px"><strong>NULL = current record.</strong> Non-null <code>dbt_valid_to</code> means that row is historical.</div>
+    </div>
+  </div>
+
+  <!-- SCD2 mechanics -->
+  <div class="card" style="margin-top:4px">
+    <h3 style="margin-bottom:12px">Type-2 SCD mechanics: three snapshot events</h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+      <div style="background:var(--surface2);border-radius:8px;padding:14px;border-top:3px solid var(--green)">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--green);margin-bottom:8px">New row</div>
+        <p style="font-size:.8rem;color:var(--muted)">ID not in snapshot yet. dbt inserts it with <code>dbt_valid_from = NOW()</code> and <code>dbt_valid_to = NULL</code>.</p>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:14px;border-top:3px solid var(--blue)">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--blue);margin-bottom:8px">Changed row</div>
+        <p style="font-size:.8rem;color:var(--muted)">ID found but value differs. dbt <em>closes</em> the old record (<code>dbt_valid_to = NOW()</code>) and inserts a new current record.</p>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:14px;border-top:3px solid var(--dim)">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:8px">Unchanged row</div>
+        <p style="font-size:.8rem;color:var(--muted)">ID found, values identical. dbt leaves the record untouched. <code>dbt_valid_to</code> stays NULL.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     SECTION 2 — Interactive Simulator
+════════════════════════════════════════ -->
+<section id="s-sim">
+  <div class="sec-hd">
+    <div class="sec-label">Simulator</div>
+    <div class="sec-title">Watch the snapshot table build up over time</div>
+    <div class="sec-sub">Pick a strategy, configure options, then step through multiple runs to see exactly what dbt adds, closes, and leaves alone.</div>
+  </div>
+
+  <div class="strat-tabs" id="stratTabs" role="tablist" aria-label="Snapshot strategy">
+    <div class="strat-tab active" data-s="ts" role="tab" aria-selected="true" tabindex="0"
+         onclick="selectStrategy('ts')" onkeydown="if(event.key==='Enter'||event.key===' ')selectStrategy('ts')">timestamp</div>
+    <div class="strat-tab" data-s="check" role="tab" aria-selected="false" tabindex="0"
+         onclick="selectStrategy('check')" onkeydown="if(event.key==='Enter'||event.key===' ')selectStrategy('check')">check</div>
+  </div>
+
+  <div class="toggles" id="simToggles"></div>
+  <div id="simNote" class="note" style="display:none"></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+    <div class="sim-wrap" style="margin-bottom:0">
+      <div class="sim-header">
+        <span class="sim-title" id="simRunLabel">Run 1 — First snapshot</span>
+        <span class="sim-step-counter" id="simStepCounter" aria-live="polite"></span>
+        <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
+          <button class="run-btn secondary" onclick="resetSim()" id="resetBtn">↺ Reset</button>
+          <button class="run-btn" onclick="stepSim()" id="runBtn">▶ Next step</button>
+          <button class="run-btn secondary" onclick="runAll()" id="allBtn">Run all</button>
+        </div>
+      </div>
+      <div class="sim-body">
+        <div id="tableArea"></div>
+        <div id="stepArea" class="steps"></div>
+      </div>
+    </div>
+
+    <div class="card sim-sql-col" style="margin-bottom:0;position:sticky;top:16px">
+      <div style="font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);margin-bottom:8px">snapshot config</div>
+      <pre id="genSQL" style="margin:0;font-size:.78rem;line-height:1.7;white-space:pre-wrap;word-break:break-word;overflow:visible"></pre>
+    </div>
+  </div>
+
+  <div class="leg" style="margin-top:14px">
+    <div class="leg-item"><div class="leg-dot ld-new"></div> new / current record</div>
+    <div class="leg-item"><div class="leg-dot ld-exp"></div> expired (dbt_valid_to set)</div>
+    <div class="leg-item"><div class="leg-dot ld-del"></div> hard-deleted record</div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     SECTION 3 — Metadata columns
+════════════════════════════════════════ -->
+<section id="s-meta">
+  <div class="sec-hd">
+    <div class="sec-label">Metadata</div>
+    <div class="sec-title">Columns dbt adds automatically</div>
+    <div class="sec-sub">Every snapshot row gets these four (or five) fields generated by the snapshot macro.</div>
+  </div>
+
+  <div class="meta-cols">
+    <div class="meta-col-card">
+      <div class="meta-col-name">dbt_scd_id</div>
+      <div class="meta-col-desc" style="margin-bottom:6px">A deterministic MD5 hash of the concatenated <code>unique_key</code> and <code>dbt_updated_at</code>. Globally unique per snapshot row — useful as a surrogate key.</div>
+      <pre style="font-size:.7rem;margin:0">MD5(
+  CAST(unique_key AS TEXT)
+  || '||' ||
+  CAST(dbt_updated_at AS TEXT)
+)</pre>
+    </div>
+    <div class="meta-col-card">
+      <div class="meta-col-name">dbt_valid_from</div>
+      <div class="meta-col-desc">When this version of the row became active. On first insert: the source's <code>updated_at</code> (timestamp strategy) or <code>NOW()</code> (check strategy).</div>
+    </div>
+    <div class="meta-col-card">
+      <div class="meta-col-name">dbt_valid_to</div>
+      <div class="meta-col-desc" style="margin-bottom:6px"><code>NULL</code> means the row is currently active. Set to the next run's timestamp when the row changes. Set a future sentinel instead of NULL with <code>dbt_valid_to_current</code>.</div>
+      <div class="note" style="margin:0;padding:8px 10px;font-size:.75rem"><strong>Tip:</strong> Use <code>WHERE dbt_valid_to IS NULL</code> to get only the latest version of each row.</div>
+    </div>
+    <div class="meta-col-card">
+      <div class="meta-col-name">dbt_updated_at</div>
+      <div class="meta-col-desc">The timestamp from the source record. For <code>timestamp</code> strategy: copied from your <code>updated_at</code> column. For <code>check</code> strategy: set to <code>NOW()</code> at run time.</div>
+    </div>
+    <div class="meta-col-card">
+      <div class="meta-col-name">dbt_is_deleted</div>
+      <div class="meta-col-desc">Only present when <code>hard_deletes: 'new_record'</code>. <code>True</code> for rows whose source ID disappeared. Lets you distinguish a "row was deleted" state from historical versions.</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:4px">
+    <h3 style="margin-bottom:12px">Customise meta-column names (dbt Core 1.9+)</h3>
+    <p style="margin-bottom:10px">If your downstream models already use these column names for something else, rename them:</p>
+<pre><span class="kw">snapshots</span>:
+  - name: orders_snapshot
+    <span class="kw">config</span>:
+      <span class="kw">snapshot_meta_column_names</span>:
+        dbt_valid_from: <span class="str">start_date</span>
+        dbt_valid_to:   <span class="str">end_date</span>
+        dbt_scd_id:     <span class="str">scd_id</span>
+        dbt_updated_at: <span class="str">modified_date</span>
+        dbt_is_deleted: <span class="str">is_deleted</span></pre>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     SECTION 4 — Strategies deep-dive
+════════════════════════════════════════ -->
+<section id="s-strat">
+  <div class="sec-hd">
+    <div class="sec-label">Strategies</div>
+    <div class="sec-title">timestamp vs. check — when to use each</div>
+    <div class="sec-sub">Both strategies detect row changes, but they use fundamentally different mechanisms. The macro dispatch is <code>snapshot_timestamp_strategy</code> / <code>snapshot_check_strategy</code>.</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+
+    <!-- timestamp -->
+    <div class="card" style="border-left:3px solid var(--s-ts)">
+      <h3 style="color:var(--s-ts);margin-bottom:4px">timestamp strategy</h3>
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:14px">Macro: <a href="https://github.com/dbt-labs/dbt-adapters/blob/main/dbt-adapters/src/dbt/include/global_project/macros/materializations/snapshots/strategies.sql" target="_blank" style="color:var(--indigo)">snapshot_timestamp_strategy</a> (strategies.sql)</div>
+      <p style="margin-bottom:10px">Compares the source <code>updated_at</code> against the snapshot's <code>dbt_valid_from</code>. If <code>source.updated_at != snapshot.dbt_valid_from</code>, the row is considered changed.</p>
+<pre style="font-size:.78rem"><span class="kw">snapshots</span>:
+  - name: orders_snapshot
+    <span class="kw">relation</span>: <span class="fn">ref</span>(<span class="str">'stg_orders'</span>)
+    <span class="kw">config</span>:
+      schema:     <span class="str">snapshots</span>
+      unique_key: <span class="str">order_id</span>
+      strategy:   <span class="str">timestamp</span>
+      updated_at: <span class="str">updated_at</span>  <span class="cm"># required</span></pre>
+      <div style="margin-top:12px">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px">Row-changed expression (compiled)</div>
+<pre style="font-size:.72rem">source.updated_at != snapshot.dbt_valid_from
+<span class="cm">-- any difference (not just newer) is treated as a change</span></pre>
+      </div>
+      <div class="note ok" style="margin-top:12px"><strong>Recommended.</strong> Cheap to compute — compares one column. Robust to schema changes because it doesn't enumerate watched columns.</div>
+      <div class="note warn" style="margin-top:8px"><strong>Requires:</strong> a reliable <code>updated_at</code> column that is always updated when any field changes. If the source sets <code>updated_at</code> inconsistently, silent misses occur.</div>
+    </div>
+
+    <!-- check -->
+    <div class="card" style="border-left:3px solid var(--s-check)">
+      <h3 style="color:var(--s-check);margin-bottom:4px">check strategy</h3>
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:14px">Macro: <a href="https://github.com/dbt-labs/dbt-adapters/blob/main/dbt-adapters/src/dbt/include/global_project/macros/materializations/snapshots/strategies.sql" target="_blank" style="color:var(--indigo)">snapshot_check_strategy</a> (strategies.sql)</div>
+      <p style="margin-bottom:10px">Compares specific column values between source and snapshot. A row is changed if <em>any</em> watched column differs (including NULL transitions).</p>
+<pre style="font-size:.78rem"><span class="kw">snapshots</span>:
+  - name: orders_snapshot
+    <span class="kw">relation</span>: <span class="fn">ref</span>(<span class="str">'stg_orders'</span>)
+    <span class="kw">config</span>:
+      schema:     <span class="str">snapshots</span>
+      unique_key: <span class="str">order_id</span>
+      strategy:   <span class="str">check</span>
+      check_cols: <span class="cm"># watch specific columns</span>
+        - <span class="str">status</span>
+        - <span class="str">amount</span>
+      <span class="cm"># or: check_cols: all</span></pre>
+      <div style="margin-top:12px">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px">Row-changed expression (compiled for status + amount)</div>
+<pre style="font-size:.72rem"><span class="cm">-- generated by snapshot_check_strategy macro</span>
+NOT (
+  (source.status = snapshot.status
+   OR (source.status IS NULL AND snapshot.status IS NULL))
+  AND
+  (source.amount = snapshot.amount
+   OR (source.amount IS NULL AND snapshot.amount IS NULL))
+)
+<span class="cm">-- NULL-safe: NULL → 'paid' is detected as a change</span></pre>
+      </div>
+      <div class="note" style="margin-top:12px"><strong>Use when:</strong> source table has no reliable <code>updated_at</code>. Lets you watch any subset of columns.</div>
+      <div class="note warn" style="margin-top:8px"><strong>Pitfall:</strong> <code>check_cols: all</code> is brittle — adding a column to the source automatically starts tracking it, which can cause spurious snapshot rows if a new column always differs from the snapshot schema.</div>
+    </div>
+  </div>
+
+  <!-- comparison table -->
+  <div class="card" style="margin-top:4px">
+    <h3 style="margin-bottom:14px">Strategy comparison</h3>
+    <table class="adapt-table">
+      <thead>
+        <tr>
+          <th style="text-align:left">Property</th>
+          <th>timestamp</th>
+          <th>check</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Requires updated_at column</td>
+          <td><span style="color:var(--red)">Yes</span></td>
+          <td><span style="color:var(--green)">No (optional)</span></td>
+        </tr>
+        <tr>
+          <td>Change detection cost</td>
+          <td><span style="color:var(--green)">Low (1 column)</span></td>
+          <td><span style="color:var(--yellow)">Higher (N columns)</span></td>
+        </tr>
+        <tr>
+          <td>Safe with schema changes</td>
+          <td><span style="color:var(--green)">Yes</span></td>
+          <td><span style="color:var(--yellow)">Risky with check_cols: all</span></td>
+        </tr>
+        <tr>
+          <td>Detects NULL transitions</td>
+          <td><span style="color:var(--muted)">Depends on updated_at</span></td>
+          <td><span style="color:var(--green)">Yes, explicitly</span></td>
+        </tr>
+        <tr>
+          <td>dbt recommendation</td>
+          <td><span style="color:var(--green)">Preferred</span></td>
+          <td><span style="color:var(--muted)">When no updated_at exists</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     SECTION 5 — Compiled SQL
+════════════════════════════════════════ -->
+<section id="s-compiled">
+  <div class="sec-hd">
+    <div class="sec-label">Compiled SQL</div>
+    <div class="sec-title">What dbt actually runs in the warehouse</div>
+    <div class="sec-sub">Four source files in dbt-adapters: <a href="https://github.com/dbt-labs/dbt-adapters/blob/main/dbt-adapters/src/dbt/include/global_project/macros/materializations/snapshots/snapshot.sql" target="_blank" style="color:var(--indigo)">snapshot.sql</a> orchestrates the run; <a href="https://github.com/dbt-labs/dbt-adapters/blob/main/dbt-adapters/src/dbt/include/global_project/macros/materializations/snapshots/strategies.sql" target="_blank" style="color:var(--indigo)">strategies.sql</a> detects changes; <a href="https://github.com/dbt-labs/dbt-adapters/blob/main/dbt-adapters/src/dbt/include/global_project/macros/materializations/snapshots/helpers.sql" target="_blank" style="color:var(--indigo)">helpers.sql</a> builds the staging table; <a href="https://github.com/dbt-labs/dbt-adapters/blob/main/dbt-adapters/src/dbt/include/global_project/macros/materializations/snapshots/snapshot_merge.sql" target="_blank" style="color:var(--indigo)">snapshot_merge.sql</a> applies it.</div>
+  </div>
+
+  <!-- First run -->
+  <div class="card" style="margin-bottom:14px;border-left:3px solid var(--teal)">
+    <h3 style="color:var(--teal);margin-bottom:4px">First run — CREATE AS SELECT</h3>
+    <div style="font-size:.75rem;color:var(--muted);margin-bottom:12px">Macro: <a href="https://github.com/dbt-labs/dbt-adapters/blob/main/dbt-adapters/src/dbt/include/global_project/macros/materializations/snapshots/helpers.sql" target="_blank" style="color:var(--indigo)">build_snapshot_table</a> (helpers.sql) → plain CREATE TABLE</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">snapshot definition</div>
+<pre style="font-size:.78rem"><span class="cm">-- snapshots/orders_snapshot.yml</span>
+<span class="kw">snapshots</span>:
+  - name: orders_snapshot
+    <span class="kw">relation</span>: <span class="fn">ref</span>(<span class="str">'stg_orders'</span>)
+    <span class="kw">config</span>:
+      schema:     <span class="str">snapshots</span>
+      unique_key: <span class="str">order_id</span>
+      strategy:   <span class="str">timestamp</span>
+      updated_at: <span class="str">updated_at</span></pre>
+      </div>
+      <div>
+        <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">compiled SQL (first run)</div>
+<pre style="font-size:.78rem"><span class="cm">-- build_snapshot_table: initial load</span>
+<span class="kw">CREATE TABLE</span> snapshots.orders_snapshot <span class="kw">AS</span>
+<span class="kw">SELECT</span>
+  source.*,
+  <span class="fn">MD5</span>(CAST(order_id <span class="kw">AS</span> TEXT)
+      || <span class="str">'||'</span>
+      || CAST(updated_at <span class="kw">AS</span> TEXT))
+      <span class="kw">AS</span> <span class="meta">dbt_scd_id</span>,
+  updated_at    <span class="kw">AS</span> <span class="meta">dbt_updated_at</span>,
+  updated_at    <span class="kw">AS</span> <span class="meta">dbt_valid_from</span>,
+  <span class="kw">NULL</span>          <span class="kw">AS</span> <span class="meta">dbt_valid_to</span>
+<span class="kw">FROM</span> stg_orders <span class="kw">AS</span> source;</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Subsequent run -->
+  <div class="card" style="margin-bottom:14px;border-left:3px solid var(--indigo)">
+    <h3 style="color:var(--indigo);margin-bottom:4px">Subsequent run — staging + merge</h3>
+    <div style="font-size:.75rem;color:var(--muted);margin-bottom:12px">Macros: <a href="https://github.com/dbt-labs/dbt-adapters/blob/main/dbt-adapters/src/dbt/include/global_project/macros/materializations/snapshots/helpers.sql" target="_blank" style="color:var(--indigo)">build_snapshot_staging_table</a> (helpers.sql) → <a href="https://github.com/dbt-labs/dbt-adapters/blob/main/dbt-adapters/src/dbt/include/global_project/macros/materializations/snapshots/snapshot_merge.sql" target="_blank" style="color:var(--indigo)">snapshot_merge_sql</a> (snapshot_merge.sql)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div>
+        <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">step 1 — build staging CTE</div>
+<pre style="font-size:.78rem"><span class="cm">-- build_snapshot_staging_table (helpers.sql)</span>
+<span class="cm">-- detects inserts, updates, hard deletes</span>
+<span class="kw">WITH</span> snapshot_query <span class="kw">AS</span> (
+  <span class="cm">-- your SELECT from stg_orders</span>
+  <span class="kw">SELECT</span> * <span class="kw">FROM</span> stg_orders
+),
+snapshotted_data <span class="kw">AS</span> (
+  <span class="cm">-- current rows in snapshot table</span>
+  <span class="kw">SELECT</span> * <span class="kw">FROM</span> snapshots.orders_snapshot
+  <span class="kw">WHERE</span> <span class="meta">dbt_valid_to</span> <span class="kw">IS NULL</span>
+),
+insertions_source_data <span class="kw">AS</span> (
+  <span class="cm">-- rows changed or new</span>
+  <span class="kw">SELECT</span>
+    source.*,
+    <span class="fn">MD5</span>(...) <span class="kw">AS</span> <span class="meta">dbt_scd_id</span>,
+    source.updated_at <span class="kw">AS</span> <span class="meta">dbt_updated_at</span>,
+    source.updated_at <span class="kw">AS</span> <span class="meta">dbt_valid_from</span>,
+    <span class="kw">NULL</span>              <span class="kw">AS</span> <span class="meta">dbt_valid_to</span>
+  <span class="kw">FROM</span> snapshot_query source
+  <span class="kw">LEFT JOIN</span> snapshotted_data snap
+    <span class="kw">ON</span> source.order_id = snap.order_id
+  <span class="kw">WHERE</span>
+    snap.order_id <span class="kw">IS NULL</span>  <span class="cm">-- new</span>
+    <span class="kw">OR</span> <span class="hl">source.updated_at != snap.<span class="meta">dbt_valid_from</span></span>
+    <span class="cm">-- ^^^ row_changed expression (timestamp strategy)</span>
+)</pre>
+      </div>
+      <div>
+        <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">step 2 — merge into snapshot table</div>
+<pre style="font-size:.78rem"><span class="cm">-- snapshot_merge_sql (snapshot_merge.sql)</span>
+<span class="kw">MERGE INTO</span> snapshots.orders_snapshot <span class="kw">AS</span> DBT_INTERNAL_DEST
+<span class="kw">USING</span> staging_table <span class="kw">AS</span> DBT_INTERNAL_SOURCE
+  <span class="kw">ON</span> DBT_INTERNAL_SOURCE.<span class="meta">dbt_scd_id</span>
+     = DBT_INTERNAL_DEST.<span class="meta">dbt_scd_id</span>
+
+<span class="cm">-- close expired records</span>
+<span class="kw">WHEN MATCHED</span>
+  <span class="kw">AND</span> DBT_INTERNAL_SOURCE.dbt_change_type = <span class="str">'update'</span>
+  <span class="kw">THEN UPDATE SET</span>
+    <span class="meta">dbt_valid_to</span> = DBT_INTERNAL_SOURCE.<span class="meta">dbt_valid_to</span>
+
+<span class="cm">-- insert new / changed records</span>
+<span class="kw">WHEN NOT MATCHED</span>
+  <span class="kw">AND</span> DBT_INTERNAL_SOURCE.dbt_change_type = <span class="str">'insert'</span>
+  <span class="kw">THEN INSERT</span> (order_id, status, updated_at,
+               <span class="meta">dbt_scd_id</span>, <span class="meta">dbt_updated_at</span>,
+               <span class="meta">dbt_valid_from</span>, <span class="meta">dbt_valid_to</span>)
+       <span class="kw">VALUES</span> (DBT_INTERNAL_SOURCE.order_id, ...);</pre>
+      </div>
+    </div>
+    <div class="note warn"><strong>Key insight:</strong> The merge key is <code>dbt_scd_id</code>, not <code>unique_key</code>. This means the same <code>order_id</code> can have multiple rows in the snapshot table (one per version) — they each have a different <code>dbt_scd_id</code>.</div>
+  </div>
+
+  <!-- hard deletes -->
+  <div class="card" style="margin-bottom:14px;border-left:3px solid var(--purple)">
+    <h3 style="color:var(--purple);margin-bottom:4px">Hard deletes</h3>
+    <div style="font-size:.75rem;color:var(--muted);margin-bottom:12px">Config: <code>hard_deletes: 'new_record'</code> — adds a <code>dbt_is_deleted</code> column</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:10px">By default, if a row disappears from the source, the snapshot doesn't know — the last version just stays open (NULL <code>dbt_valid_to</code>) forever.</p>
+        <p style="font-size:.8rem;color:var(--muted)">With <code>hard_deletes: 'new_record'</code>, dbt inserts a deletion record:</p>
+<pre style="font-size:.78rem"><span class="kw">snapshots</span>:
+  - name: orders_snapshot
+    <span class="kw">config</span>:
+      strategy: <span class="str">timestamp</span>
+      updated_at: <span class="str">updated_at</span>
+      hard_deletes: <span class="str">new_record</span>
+      <span class="cm"># also available: 'invalidate'</span>
+      <span class="cm"># (closes the row, no deletion record)</span></pre>
+      </div>
+      <div>
+        <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">snapshot table after deletion</div>
+        <div class="dbt">
+          <div class="dbt-cols">
+            <div class="dbt-col">id</div>
+            <div class="dbt-col">status</div>
+            <div class="dbt-col">dbt_valid_to</div>
+            <div class="dbt-col">dbt_is_deleted</div>
+          </div>
+          <div class="dbt-row r-exp">
+            <div class="c">1</div>
+            <div class="c">pending</div>
+            <div class="c" style="color:var(--red)">2024-01-03</div>
+            <div class="c" style="color:var(--muted)">False</div>
+          </div>
+          <div class="dbt-row r-exp">
+            <div class="c">1</div>
+            <div class="c">shipped</div>
+            <div class="c" style="color:var(--red)">2024-01-07</div>
+            <div class="c" style="color:var(--muted)">False</div>
+          </div>
+          <div class="dbt-row" style="background:#3b076428;border:1px dashed #c084fc60">
+            <div class="c">1</div>
+            <div class="c" style="color:var(--purple)">shipped</div>
+            <div class="c" style="color:var(--teal)">NULL</div>
+            <div class="c" style="color:var(--purple)">True</div>
+          </div>
+        </div>
+        <div class="note" style="margin-top:10px;font-size:.75rem"><strong>Note:</strong> The deletion record preserves the last known values, so you can still query what the row looked like when it was deleted.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     SECTION 6 — Scenarios
+════════════════════════════════════════ -->
+<section id="s-scenarios">
+  <div class="sec-hd">
+    <div class="sec-label">Scenarios</div>
+    <div class="sec-title">Common configuration patterns</div>
+    <div class="sec-sub">Click any scenario to load it into the simulator above.</div>
+  </div>
+  <div class="perm-grid" id="scenarioGrid"></div>
+</section>
+
+<!-- ════════════════════════════════════════
+     SECTION 7 — Pitfalls
+════════════════════════════════════════ -->
+<section id="s-pitfalls">
+  <div class="sec-hd">
+    <div class="sec-label">Pitfalls</div>
+    <div class="sec-title">What can go wrong — and how to fix it</div>
+    <div class="sec-sub">The most common snapshot mistakes and how to detect them early.</div>
+  </div>
+
+  <!-- Pitfall 1 -->
+  <div class="card" style="margin-bottom:14px;border-left:3px solid var(--red)">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <h3 style="margin:0">Silent misses with timestamp strategy</h3>
+      <span style="font-size:.72rem;color:var(--muted);font-weight:600;margin-left:auto">Affects: timestamp strategy</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div style="background:var(--surface2);border-radius:8px;padding:12px 14px">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--red);margin-bottom:8px">What breaks</div>
+        <p style="font-size:.8rem;color:var(--muted)">Source updates a row but doesn't change <code>updated_at</code> (bug in upstream pipeline, manual edit). The snapshot never detects the change — the stale value stays silently forever.</p>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px 14px">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--yellow);margin-bottom:8px">Detect</div>
+        <p style="font-size:.8rem;color:var(--muted)">Periodically compare snapshot current rows against source on columns that matter. Add a dbt test that asserts the snapshot matches source for all non-updated_at columns.</p>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px 14px">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--green);margin-bottom:8px">Fix</div>
+        <p style="font-size:.8rem;color:var(--muted)">Validate upstream <code>updated_at</code> is always updated on writes. If the source is unreliable, switch to <code>check</code> strategy on the important columns, or add <code>updated_at</code> in a staging model using <code>CURRENT_TIMESTAMP</code>.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pitfall 2 -->
+  <div class="card" style="margin-bottom:14px;border-left:3px solid var(--yellow)">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <h3 style="margin:0">Duplicate unique_key in source</h3>
+      <span style="font-size:.72rem;color:var(--muted);font-weight:600;margin-left:auto">Affects: all strategies</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div style="background:var(--surface2);border-radius:8px;padding:12px 14px">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--red);margin-bottom:8px">What breaks</div>
+        <p style="font-size:.8rem;color:var(--muted)">If <code>unique_key</code> is not unique in the source, the staging CTE produces multiple "current" rows for the same ID. The merge then produces duplicate snapshot rows — a broken SCD2 that can't be queried correctly.</p>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px 14px">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--yellow);margin-bottom:8px">Detect</div>
+<pre style="font-size:.72rem"><span class="cm">-- schema.yml on the source</span>
+sources:
+  - name: app_db
+    tables:
+      - name: orders
+        columns:
+          - name: order_id
+            tests:
+              - unique
+              - not_null</pre>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px 14px">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--green);margin-bottom:8px">Fix</div>
+        <p style="font-size:.8rem;color:var(--muted)">Deduplicate in a staging model before the snapshot reads it. Use <code>QUALIFY ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY updated_at DESC) = 1</code>.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pitfall 3 -->
+  <div class="card" style="margin-bottom:14px;border-left:3px solid var(--orange)">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <h3 style="margin:0">Schema change breaks snapshot</h3>
+      <span style="font-size:.72rem;color:var(--muted);font-weight:600;margin-left:auto">Affects: all strategies</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div style="background:var(--surface2);border-radius:8px;padding:12px 14px">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--red);margin-bottom:8px">What breaks</div>
+        <p style="font-size:.8rem;color:var(--muted)">Adding a new column to the source: dbt automatically adds it to the snapshot table on the next run. Removing a column from the source: dbt will NOT remove it from the snapshot — old rows keep the stale column. Column type changes (INT → BIGINT) can silently cast or error.</p>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px 14px">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--yellow);margin-bottom:8px">Detect</div>
+        <p style="font-size:.8rem;color:var(--muted)">Run <code>dbt compile --select orders_snapshot</code> and diff the compiled SQL before deploying. Monitor <code>information_schema.columns</code> for unexpected changes in the snapshot schema.</p>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px 14px">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--green);margin-bottom:8px">Fix</div>
+        <p style="font-size:.8rem;color:var(--muted)">For breaking schema changes, drop and recreate the snapshot table (<code>DROP TABLE snapshots.orders_snapshot</code> then re-run). Accept loss of history, or migrate old rows manually.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pitfall 4 -->
+  <div class="card" style="margin-bottom:14px;border-left:3px solid var(--purple)">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <h3 style="margin:0">Querying snapshots incorrectly</h3>
+      <span style="font-size:.72rem;color:var(--muted);font-weight:600;margin-left:auto">Affects: downstream models</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="background:var(--surface2);border-radius:8px;padding:12px 14px">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--red);margin-bottom:8px">Wrong — returns duplicates</div>
+<pre style="font-size:.72rem"><span class="cm">-- ❌ returns ALL versions of every order</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> orders_snapshot;</pre>
+        <p style="font-size:.78rem;color:var(--muted);margin-top:8px">Order 1 shows up twice — once as "pending", once as "shipped".</p>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px 14px">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--green);margin-bottom:8px">Correct query patterns</div>
+<pre style="font-size:.72rem"><span class="cm">-- ✅ current state only</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> orders_snapshot
+<span class="kw">WHERE</span> dbt_valid_to <span class="kw">IS NULL</span>;
+
+<span class="cm">-- ✅ state at a point in time</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> orders_snapshot
+<span class="kw">WHERE</span> dbt_valid_from &lt;= <span class="str">'2024-01-02'</span>
+  <span class="kw">AND</span> (dbt_valid_to > <span class="str">'2024-01-02'</span>
+       <span class="kw">OR</span> dbt_valid_to <span class="kw">IS NULL</span>);
+
+<span class="cm">-- ✅ easier with dbt_valid_to_current='9999-12-31'</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> orders_snapshot
+<span class="kw">WHERE</span> <span class="str">'2024-01-02'</span> <span class="kw">BETWEEN</span>
+      dbt_valid_from <span class="kw">AND</span> dbt_valid_to;</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick ref -->
+  <div class="card">
+    <h3 style="margin-bottom:14px">Pitfall quick-reference</h3>
+    <table class="adapt-table">
+      <thead>
+        <tr>
+          <th style="text-align:left">Pitfall</th>
+          <th>timestamp</th>
+          <th>check</th>
+          <th>Severity</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Silent miss (no updated_at change)</td>
+          <td><span style="color:var(--red);font-weight:700">High</span></td>
+          <td><span style="color:var(--green);font-weight:700">N/A</span></td>
+          <td><span style="color:var(--red)">Critical</span></td>
+        </tr>
+        <tr>
+          <td>Duplicate unique_key in source</td>
+          <td><span style="color:var(--red);font-weight:700">High</span></td>
+          <td><span style="color:var(--red);font-weight:700">High</span></td>
+          <td><span style="color:var(--red)">Critical</span></td>
+        </tr>
+        <tr>
+          <td>Schema drift (new columns)</td>
+          <td><span style="color:var(--yellow);font-weight:700">Med</span></td>
+          <td><span style="color:var(--red);font-weight:700">High (check_cols: all)</span></td>
+          <td><span style="color:var(--yellow)">Medium</span></td>
+        </tr>
+        <tr>
+          <td>Querying without dbt_valid_to IS NULL</td>
+          <td><span style="color:var(--red);font-weight:700">High</span></td>
+          <td><span style="color:var(--red);font-weight:700">High</span></td>
+          <td><span style="color:var(--yellow)">Medium</span></td>
+        </tr>
+        <tr>
+          <td>Hard deletes silently open-ended</td>
+          <td><span style="color:var(--yellow);font-weight:700">Med</span></td>
+          <td><span style="color:var(--yellow);font-weight:700">Med</span></td>
+          <td><span style="color:var(--yellow)">Medium</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     SECTION 8 — Point-in-time queries
+════════════════════════════════════════ -->
+<section id="s-pit">
+  <div class="sec-hd">
+    <div class="sec-label">Point-in-time queries</div>
+    <div class="sec-title">Reconstructing state at any moment in history</div>
+    <div class="sec-sub">The core use case for snapshots — and where most query mistakes happen.</div>
+  </div>
+
+  <!-- The pattern -->
+  <div class="card" style="margin-bottom:14px">
+    <h3 style="margin-bottom:12px">The pattern</h3>
+    <p style="margin-bottom:12px">To get the state of a row <em>as it was on a given date</em>, filter for the version whose validity window contains that date:</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">with NULL (default)</div>
+<pre style="font-size:.78rem"><span class="kw">SELECT</span> *
+<span class="kw">FROM</span> orders_snapshot
+<span class="kw">WHERE</span> dbt_valid_from &lt;= <span class="str">'2024-01-02'</span>
+  <span class="kw">AND</span> (
+    dbt_valid_to  > <span class="str">'2024-01-02'</span>
+    <span class="kw">OR</span> dbt_valid_to <span class="kw">IS NULL</span>
+  );
+<span class="cm">-- returns one row per unique_key</span></pre>
+      </div>
+      <div>
+        <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">with dbt_valid_to_current = '9999-12-31'</div>
+<pre style="font-size:.78rem"><span class="kw">SELECT</span> *
+<span class="kw">FROM</span> orders_snapshot
+<span class="kw">WHERE</span> <span class="str">'2024-01-02'</span>
+      <span class="kw">BETWEEN</span> dbt_valid_from
+          <span class="kw">AND</span> dbt_valid_to;
+<span class="cm">-- cleaner — no NULL handling needed</span>
+<span class="cm">-- requires dbt_valid_to_current config</span></pre>
+      </div>
+    </div>
+    <div class="note warn" style="margin-top:12px"><strong>The most common mistake:</strong> forgetting <code>OR dbt_valid_to IS NULL</code>. This silently drops all currently-active rows from results — you only get historical versions.</div>
+  </div>
+
+  <!-- Interactive PIT demo -->
+  <div class="card" style="margin-bottom:14px">
+    <h3 style="margin-bottom:12px">Interactive — query the snapshot at a point in time</h3>
+    <div class="toggles" style="margin-bottom:16px">
+      <div class="toggle-group">
+        <label>Query date</label>
+        <select id="pitDate" onchange="renderPIT()">
+          <option value="2024-01-01">2024-01-01 (before any snapshot)</option>
+          <option value="2024-01-02">2024-01-02 (after run 1)</option>
+          <option value="2024-01-04" selected>2024-01-04 (between run 1 & 2)</option>
+          <option value="2024-01-06">2024-01-06 (after run 2)</option>
+          <option value="2024-01-08">2024-01-08 (between run 2 & 3)</option>
+          <option value="2024-01-09">2024-01-09 (after run 3)</option>
+        </select>
+      </div>
+      <div class="toggle-group">
+        <label>NULL handling</label>
+        <select id="pitNullMode" onchange="renderPIT()">
+          <option value="null">OR dbt_valid_to IS NULL</option>
+          <option value="sentinel">dbt_valid_to_current = '9999-12-31'</option>
+          <option value="wrong">Missing IS NULL check (broken!)</option>
+        </select>
+      </div>
+    </div>
+    <div id="pitResult"></div>
+  </div>
+
+  <!-- Joining two snapshots -->
+  <div class="card" style="margin-bottom:14px">
+    <h3 style="margin-bottom:12px">Joining two snapshot tables at a point in time</h3>
+    <p style="margin-bottom:10px">Each snapshot needs its own independent point-in-time filter. Only filtering one side of the join is a very common mistake — it fans out to every historical version on the unfiltered side.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <div style="font-size:.7rem;color:var(--red);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:6px">Wrong — only one side filtered</div>
+<pre style="font-size:.76rem"><span class="kw">SELECT</span> o.order_id, o.status,
+       c.name <span class="kw">AS</span> customer_name
+<span class="kw">FROM</span> orders_snapshot o
+<span class="kw">JOIN</span> customers_snapshot c
+  <span class="kw">ON</span> o.customer_id = c.customer_id
+<span class="kw">WHERE</span> o.dbt_valid_to <span class="kw">IS NULL</span>;
+<span class="cm">-- ❌ joins ALL versions of customer</span>
+<span class="cm">--    against each current order</span></pre>
+      </div>
+      <div>
+        <div style="font-size:.7rem;color:var(--green);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:6px">Correct — both sides filtered</div>
+<pre style="font-size:.76rem"><span class="kw">SELECT</span> o.order_id, o.status,
+       c.name <span class="kw">AS</span> customer_name
+<span class="kw">FROM</span> orders_snapshot o
+<span class="kw">JOIN</span> customers_snapshot c
+  <span class="kw">ON</span>  o.customer_id = c.customer_id
+  <span class="cm">-- filter customer at same point in time</span>
+  <span class="kw">AND</span> <span class="str">'2024-01-04'</span> <span class="kw">BETWEEN</span>
+      c.dbt_valid_from <span class="kw">AND</span>
+      <span class="fn">COALESCE</span>(c.dbt_valid_to, <span class="str">'9999-12-31'</span>)
+<span class="cm">-- filter orders at same point in time</span>
+<span class="kw">WHERE</span> <span class="str">'2024-01-04'</span> <span class="kw">BETWEEN</span>
+      o.dbt_valid_from <span class="kw">AND</span>
+      <span class="fn">COALESCE</span>(o.dbt_valid_to, <span class="str">'9999-12-31'</span>);</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- dbt model pattern -->
+  <div class="card">
+    <h3 style="margin-bottom:12px">Encapsulating the pattern in a dbt model</h3>
+    <p style="margin-bottom:10px">Rather than writing the filter everywhere, expose a <code>current_orders</code> model that downstream consumers can use safely:</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">models/current_orders.sql</div>
+<pre style="font-size:.78rem"><span class="cm">-- always returns current state</span>
+<span class="kw">SELECT</span> *
+<span class="kw">FROM</span> {{ <span class="fn">ref</span>(<span class="str">'orders_snapshot'</span>) }}
+<span class="kw">WHERE</span> dbt_valid_to <span class="kw">IS NULL</span></pre>
+      </div>
+      <div>
+        <div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">models/orders_at.sql (parameterised)</div>
+<pre style="font-size:.78rem"><span class="cm">-- pass a var for the report date</span>
+<span class="kw">SELECT</span> *
+<span class="kw">FROM</span> {{ <span class="fn">ref</span>(<span class="str">'orders_snapshot'</span>) }}
+<span class="kw">WHERE</span> dbt_valid_from &lt;= <span class="str">'{{ var("report_date") }}'</span>
+  <span class="kw">AND</span> (
+    dbt_valid_to  > <span class="str">'{{ var("report_date") }}'</span>
+    <span class="kw">OR</span> dbt_valid_to <span class="kw">IS NULL</span>
+  )</pre>
+      </div>
+    </div>
+    <div class="note" style="margin-top:12px"><strong>Tip:</strong> Build <code>current_orders</code> as a regular <code>view</code> materialization — it always reflects the latest snapshot state without any storage cost.</div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     SECTION 9 — BI tools (Looker)
+════════════════════════════════════════ -->
+<section id="s-bi">
+  <div class="sec-hd">
+    <div class="sec-label">BI tools</div>
+    <div class="sec-title">Exposing snapshot history in Looker (and other tools)</div>
+    <div class="sec-sub">Snapshot tables are multi-row per entity — BI tools expect one row per entity. The translation layer lives in dbt, not in Looker.</div>
+  </div>
+
+  <!-- The problem -->
+  <div class="card" style="margin-bottom:14px;border-left:3px solid var(--red)">
+    <h3 style="margin-bottom:10px">Why you can't just point Looker at the snapshot table</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:10px">A snapshot table has <strong>multiple rows per order</strong>. If a Looker explore joins orders to line items on <code>order_id</code>, every historical version fans out — metrics like revenue are multiplied by version count.</p>
+        <div class="note danger" style="margin-top:0"><strong>Fan-out:</strong> order 1 has 2 versions × 3 line items = 6 rows instead of 3. Revenue doubles.</div>
+      </div>
+      <div class="dbt">
+        <div class="dbt-head">orders_snapshot (raw — 4 rows for 2 orders)</div>
+        <div class="dbt-cols">
+          <div class="dbt-col">id</div>
+          <div class="dbt-col">status</div>
+          <div class="dbt-col">dbt_valid_from</div>
+          <div class="dbt-col">dbt_valid_to</div>
+        </div>
+        <div class="dbt-row r-exp">
+          <div class="c">1</div><div class="c" style="color:var(--yellow)">pending</div>
+          <div class="c" style="color:var(--muted)">2024-01-01</div><div class="c" style="color:var(--red)">2024-01-05</div>
+        </div>
+        <div class="dbt-row r-cur">
+          <div class="c">1</div><div class="c" style="color:var(--green)">shipped</div>
+          <div class="c" style="color:var(--muted)">2024-01-05</div><div class="c" style="color:var(--teal)">NULL</div>
+        </div>
+        <div class="dbt-row r-cur">
+          <div class="c">2</div><div class="c">pending</div>
+          <div class="c" style="color:var(--muted)">2024-01-02</div><div class="c" style="color:var(--teal)">NULL</div>
+        </div>
+        <div class="dbt-row r-cur">
+          <div class="c">4</div><div class="c" style="color:var(--green)">shipped</div>
+          <div class="c" style="color:var(--muted)">2024-01-04</div><div class="c" style="color:var(--teal)">NULL</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Three patterns -->
+  <div class="card" style="margin-bottom:14px">
+    <h3 style="margin-bottom:14px">Three patterns — choose based on what Looker needs</h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+
+      <div style="background:var(--surface2);border-radius:8px;padding:14px;border-top:3px solid var(--green)">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--green);margin-bottom:8px">Pattern 1 — Current state view</div>
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:10px">A dbt view that filters to <code>dbt_valid_to IS NULL</code>. Looker treats it like a normal table — one row per order. Use this for 90% of dashboards.</p>
+<pre style="font-size:.72rem"><span class="cm">-- models/current_orders.sql</span>
+<span class="kw">SELECT</span> * <span class="kw">EXCEPT</span> (
+  dbt_scd_id,
+  dbt_valid_from,
+  dbt_valid_to,
+  dbt_updated_at
+)
+<span class="kw">FROM</span> {{ <span class="fn">ref</span>(<span class="str">'orders_snapshot'</span>) }}
+<span class="kw">WHERE</span> dbt_valid_to <span class="kw">IS NULL</span></pre>
+        <div class="note ok" style="margin-top:8px;padding:6px 10px;font-size:.75rem"><strong>Best for:</strong> operational dashboards, current KPIs</div>
+      </div>
+
+      <div style="background:var(--surface2);border-radius:8px;padding:14px;border-top:3px solid var(--blue)">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--blue);margin-bottom:8px">Pattern 2 — Date spine join</div>
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:10px">Join the snapshot to a date spine so each row represents one entity on one day. Looker can then filter by date and show how metrics changed over time.</p>
+<pre style="font-size:.72rem"><span class="cm">-- models/orders_daily.sql</span>
+<span class="kw">SELECT</span>
+  d.date_day,
+  o.order_id,
+  o.status,
+  o.amount
+<span class="kw">FROM</span> {{ <span class="fn">ref</span>(<span class="str">'dim_dates'</span>) }} d
+<span class="kw">JOIN</span> {{ <span class="fn">ref</span>(<span class="str">'orders_snapshot'</span>) }} o
+  <span class="kw">ON</span> d.date_day <span class="kw">BETWEEN</span>
+     o.dbt_valid_from <span class="kw">AND</span>
+     <span class="fn">COALESCE</span>(o.dbt_valid_to,
+              <span class="fn">CURRENT_DATE</span>)</pre>
+        <div class="note" style="margin-top:8px;padding:6px 10px;font-size:.75rem"><strong>Best for:</strong> trend charts, "status over time" analyses</div>
+      </div>
+
+      <div style="background:var(--surface2);border-radius:8px;padding:14px;border-top:3px solid var(--purple)">
+        <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--purple);margin-bottom:8px">Pattern 3 — Looker liquid date</div>
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:10px">Let the Looker user pick the "as-of date" via a filter. Pass it into the LookML <code>sql_table_name</code> using a <code>{% raw %}{% if %}{% endraw %}</code> block or a derived table with a liquid variable.</p>
+<pre style="font-size:.72rem"><span class="cm">-- LookML derived table</span>
+derived_table: {
+  sql:
+    <span class="kw">SELECT</span> * <span class="kw">FROM</span> orders_snapshot
+    <span class="kw">WHERE</span> dbt_valid_from
+          &lt;= <span class="str">{% raw %}{{</span>
+    <span class="str">  _filters['orders.report_date']</span>
+    <span class="str">}}{% endraw %}</span>
+    <span class="kw">AND</span> (dbt_valid_to
+         > <span class="str">{% raw %}{{</span>
+    <span class="str">  _filters['orders.report_date']</span>
+    <span class="str">}}{% endraw %}</span>
+    <span class="kw">OR</span> dbt_valid_to <span class="kw">IS NULL</span>) ;;
+}</pre>
+        <div class="note" style="margin-top:8px;padding:6px 10px;font-size:.75rem"><strong>Best for:</strong> self-serve "what did this look like on date X?" explorers</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Looker-specific gotchas -->
+  <div class="card">
+    <h3 style="margin-bottom:14px">Looker-specific gotchas</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="background:var(--surface2);border-radius:8px;padding:14px">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--yellow);margin-bottom:8px">Symmetric aggregates</div>
+        <p style="font-size:.8rem;color:var(--muted)">If you expose the raw snapshot in Looker and join line items, symmetric aggregates won't save you from fan-out — the duplication happens in the join before aggregation. Filter first in a derived table or dbt model.</p>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:14px">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--yellow);margin-bottom:8px">PDT caching vs. live snapshots</div>
+        <p style="font-size:.8rem;color:var(--muted)">Looker PDTs cache results. If your snapshot runs hourly but the PDT is cached for 24h, the Looker view is stale. Either trigger PDT rebuilds after <code>dbt snapshot</code> completes, or use a view-materialized dbt model (always fresh).</p>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:14px">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--yellow);margin-bottom:8px">dbt_valid_to in Looker dimensions</div>
+        <p style="font-size:.8rem;color:var(--muted)">Expose <code>dbt_valid_from</code> and <code>dbt_valid_to</code> as dimensions in LookML so users can see how long a status lasted. Hide <code>dbt_scd_id</code> and <code>dbt_updated_at</code> — they're internals.</p>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:14px">
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--yellow);margin-bottom:8px">Other BI tools</div>
+        <p style="font-size:.8rem;color:var(--muted)">Same principles apply to Tableau, Power BI, Metabase. The safest pattern is always: <strong>filter in dbt, expose a clean view</strong>. Avoid relying on BI-layer filtering for deduplication — it's easy to forget and hard to test.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     SECTION 10 — Quiz
+════════════════════════════════════════ -->
+<section id="s-quiz">
+  <div class="sec-hd">
+    <div class="sec-label">Quiz</div>
+    <div class="sec-title">Test your understanding</div>
+    <div class="sec-sub">7 questions covering strategy mechanics, metadata columns, and common pitfalls.</div>
+  </div>
+  <div class="quiz-wrap" id="quizWrap"></div>
+</section>
+
+</div><!-- /wrap -->
+
+<script>
+// ═══════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════
+const STRATS = {
+  ts: {
+    label: 'timestamp strategy',
+    color: 'var(--s-ts)',
+    defaultOpts: { hard_deletes: 'ignore', dbt_valid_to_current: false }
+  },
+  check: {
+    label: 'check strategy',
+    color: 'var(--s-check)',
+    defaultOpts: { check_cols: 'specific', hard_deletes: 'ignore', dbt_valid_to_current: false }
+  }
+};
+
+const SCENARIOS = [
+  {
+    strategy: 'ts', title: 'Timestamp — basic', badge: 'timestamp', badgeColor: 'var(--s-ts)',
+    sub: 'Standard order tracking. updated_at present, no hard-delete tracking.',
+    opts: { hard_deletes: 'ignore', dbt_valid_to_current: false }
+  },
+  {
+    strategy: 'ts', title: 'Timestamp + sentinel valid_to', badge: 'timestamp', badgeColor: 'var(--s-ts)',
+    sub: 'Use 9999-12-31 instead of NULL for current records. Simplifies BETWEEN queries.',
+    opts: { hard_deletes: 'ignore', dbt_valid_to_current: true }
+  },
+  {
+    strategy: 'ts', title: 'Timestamp + hard deletes', badge: 'timestamp', badgeColor: 'var(--s-ts)',
+    sub: 'Track when orders are deleted from source. Adds dbt_is_deleted column.',
+    opts: { hard_deletes: 'new_record', dbt_valid_to_current: false }
+  },
+  {
+    strategy: 'check', title: 'Check — specific columns', badge: 'check', badgeColor: 'var(--s-check)',
+    sub: 'Watch only status and amount. New columns added to source won\'t trigger spurious rows.',
+    opts: { check_cols: 'specific', hard_deletes: 'ignore', dbt_valid_to_current: false }
+  },
+  {
+    strategy: 'check', title: 'Check — all columns', badge: 'check', badgeColor: 'var(--s-check)',
+    sub: 'Any column change triggers a snapshot row. Risky if source schema changes frequently.',
+    opts: { check_cols: 'all', hard_deletes: 'ignore', dbt_valid_to_current: false }
+  },
+  {
+    strategy: 'check', title: 'Check + hard deletes', badge: 'check', badgeColor: 'var(--s-check)',
+    sub: 'No updated_at in source, but still need to track deletions.',
+    opts: { check_cols: 'specific', hard_deletes: 'new_record', dbt_valid_to_current: false }
+  }
+];
+
+const QUIZ_QUESTIONS = [
+  {
+    q: 'In a snapshot table, what does dbt_valid_to = NULL mean?',
+    opts: ['The row is the current active version', 'The row was deleted from source', 'The snapshot failed to set a value', 'The row has never changed'],
+    correct: 0,
+    fb: 'NULL means the row is currently active — no newer version has replaced it yet. Non-null dbt_valid_to means that version has been superseded.'
+  },
+  {
+    q: 'Which strategy is recommended when the source table has a reliable updated_at column?',
+    opts: ['timestamp', 'check', 'merge', 'Both are equivalent'],
+    correct: 0,
+    fb: 'timestamp is recommended — it\'s cheaper (compares one column) and more robust to schema changes than check strategy.'
+  },
+  {
+    q: 'What column does dbt use as the merge key when applying snapshot changes?',
+    opts: ['dbt_scd_id', 'unique_key', 'dbt_valid_from', 'order_id'],
+    correct: 0,
+    fb: 'The merge uses dbt_scd_id — a hash of (unique_key + updated_at). This allows multiple rows with the same unique_key (different versions) to coexist.'
+  },
+  {
+    q: 'You run dbt snapshot twice on the same unchanged source. What happens to the snapshot table?',
+    opts: ['Nothing — no rows are inserted or updated', 'One duplicate row is inserted per record', 'All dbt_valid_to values are refreshed', 'The table is dropped and recreated'],
+    correct: 0,
+    fb: 'If the source hasn\'t changed, the staging CTE finds no inserts or updates. The merge runs but touches nothing.'
+  },
+  {
+    q: 'With check strategy and check_cols: all, a new column is added to the source. What happens on the next run?',
+    opts: [
+      'Every row appears "changed" because the new column doesn\'t exist in the snapshot yet',
+      'dbt errors with a schema mismatch',
+      'The new column is ignored until you run --full-refresh',
+      'Nothing — check_cols: all only watches columns present in both source and snapshot'
+    ],
+    correct: 0,
+    fb: 'check_cols: all compares all source columns. The new column has values in source but NULL in snapshot — so every row triggers a change. This is why specific check_cols is safer for evolving schemas.'
+  },
+  {
+    q: 'How do you query only the current (latest) version of each row in a snapshot?',
+    opts: [
+      'WHERE dbt_valid_to IS NULL',
+      'WHERE dbt_valid_from = MAX(dbt_valid_from)',
+      'SELECT DISTINCT ON (unique_key)',
+      'ORDER BY dbt_valid_from DESC LIMIT 1'
+    ],
+    correct: 0,
+    fb: 'NULL dbt_valid_to is the signal for "this is the active row." With dbt_valid_to_current set, you\'d filter WHERE dbt_valid_to = \'9999-12-31\' instead.'
+  },
+  {
+    q: 'A row is deleted from the source. With the default config (no hard_deletes), what does the snapshot show?',
+    opts: [
+      'The last version of the row stays open with dbt_valid_to = NULL forever',
+      'A new row is inserted with dbt_is_deleted = True',
+      'The row\'s dbt_valid_to is set to the current timestamp',
+      'The row is physically deleted from the snapshot table'
+    ],
+    correct: 0,
+    fb: 'By default dbt doesn\'t track hard deletes. The last snapshot row stays open. Enable hard_deletes: \'new_record\' to insert a deletion record, or \'invalidate\' to close the row without adding a new one.'
+  }
+];
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let currentStrategy = 'ts';
+let opts = { hard_deletes: 'ignore', dbt_valid_to_current: false };
+let simStep = 0;
+let simRun = 0;
+
+// Source data across 3 runs
+const RUNS = [
+  // Run 1 source
+  [
+    { id: 1, status: 'pending', amount: 100, updated_at: '2024-01-01' },
+    { id: 2, status: 'pending', amount: 200, updated_at: '2024-01-02' },
+    { id: 3, status: 'shipped', amount: 150, updated_at: '2024-01-01' },
+  ],
+  // Run 2 source — row 1 updated, row 4 new
+  [
+    { id: 1, status: 'shipped', amount: 100, updated_at: '2024-01-05' },
+    { id: 2, status: 'pending', amount: 200, updated_at: '2024-01-02' },
+    { id: 3, status: 'shipped', amount: 150, updated_at: '2024-01-01' },
+    { id: 4, status: 'pending', amount: 75,  updated_at: '2024-01-04' },
+  ],
+  // Run 3 source — row 2 updated, row 3 deleted
+  [
+    { id: 1, status: 'shipped', amount: 100, updated_at: '2024-01-05' },
+    { id: 2, status: 'returned', amount: 200, updated_at: '2024-01-08' },
+    { id: 4, status: 'shipped', amount: 75,  updated_at: '2024-01-07' },
+  ]
+];
+
+let snapshotTable = []; // rows in the snapshot
+
+// ═══════════════════════════════════════════════
+// SIMULATOR STEPS
+// ═══════════════════════════════════════════════
+function buildSteps(run, strategy, currentOpts) {
+  const source = RUNS[run];
+  const currentSnap = snapshotTable.filter(r => r.dbt_valid_to === null);
+  const runDate = ['2024-01-03', '2024-01-06', '2024-01-09'][run];
+
+  if (run === 0) {
+    return [
+      {
+        label: 'Read source table',
+        note: `${source.length} rows found in stg_orders`,
+        sql: `SELECT * FROM stg_orders;\n-- Returns ${source.length} rows`,
+        action: 'show_source'
+      },
+      {
+        label: 'No snapshot table exists — create it',
+        note: 'build_snapshot_table called (first run path)',
+        sql: `CREATE TABLE snapshots.orders_snapshot AS\nSELECT\n  source.*,\n  MD5(CAST(order_id AS TEXT) || '||' || CAST(updated_at AS TEXT)) AS dbt_scd_id,\n  updated_at AS dbt_updated_at,\n  updated_at AS dbt_valid_from,\n  NULL       AS dbt_valid_to\nFROM stg_orders AS source;`,
+        action: 'first_insert'
+      },
+      {
+        label: `Snapshot table created with ${source.length} rows`,
+        note: 'All rows are current (dbt_valid_to = NULL)',
+        sql: `-- ${source.length} rows inserted, all with dbt_valid_to = NULL`,
+        action: null
+      }
+    ];
+  }
+
+  const prevSource = RUNS[run - 1];
+  const newRows = source.filter(s => !currentSnap.find(c => c.id === s.id));
+  const changedRows = source.filter(s => {
+    const snap = currentSnap.find(c => c.id === s.id);
+    if (!snap) return false;
+    if (strategy === 'ts') return s.updated_at !== snap.updated_at;
+    return s.status !== snap.status || s.amount !== snap.amount;
+  });
+  const deletedIds = currentSnap
+    .map(c => c.id)
+    .filter(id => !source.find(s => s.id === id));
+
+  const steps = [
+    {
+      label: 'Read source table',
+      note: `${source.length} rows in stg_orders`,
+      sql: `SELECT * FROM stg_orders;\n-- Returns ${source.length} rows`,
+      action: 'show_source'
+    },
+    {
+      label: 'Build staging CTE — detect changes',
+      note: strategy === 'ts'
+        ? `Comparing source.updated_at vs snapshot.dbt_valid_from\nFound: ${newRows.length} new, ${changedRows.length} changed`
+        : `Comparing status, amount column-by-column\nFound: ${newRows.length} new, ${changedRows.length} changed`,
+      sql: strategy === 'ts'
+        ? `WITH snapshotted_data AS (\n  SELECT * FROM snapshots.orders_snapshot\n  WHERE dbt_valid_to IS NULL\n),\ninsertions AS (\n  SELECT source.* FROM stg_orders source\n  LEFT JOIN snapshotted_data snap\n    ON source.order_id = snap.order_id\n  WHERE snap.order_id IS NULL         -- new\n     OR source.updated_at != snap.dbt_valid_from  -- changed\n)`
+        : `WITH snapshotted_data AS (\n  SELECT * FROM snapshots.orders_snapshot\n  WHERE dbt_valid_to IS NULL\n),\ninsertions AS (\n  SELECT source.* FROM stg_orders source\n  LEFT JOIN snapshotted_data snap\n    ON source.order_id = snap.order_id\n  WHERE snap.order_id IS NULL  -- new\n  OR NOT (\n    (source.status = snap.status OR (source.status IS NULL AND snap.status IS NULL))\n    AND (source.amount = snap.amount OR (source.amount IS NULL AND snap.amount IS NULL))\n  )  -- changed\n)`,
+      action: null
+    }
+  ];
+
+  if (changedRows.length > 0) {
+    steps.push({
+      label: `Close ${changedRows.length} changed row(s) — set dbt_valid_to`,
+      note: `IDs: ${changedRows.map(r => r.id).join(', ')} → dbt_valid_to = ${runDate}`,
+      sql: `-- MERGE WHEN MATCHED AND change_type='update'\nUPDATE snapshots.orders_snapshot\nSET dbt_valid_to = '${runDate}'\nWHERE dbt_scd_id IN (/* staging rows flagged as updates */);`,
+      action: 'expire',
+      ids: changedRows.map(r => r.id)
+    });
+  }
+
+  if (newRows.length > 0 || changedRows.length > 0) {
+    const insertCount = newRows.length + changedRows.length;
+    steps.push({
+      label: `Insert ${insertCount} new record(s)`,
+      note: `New IDs: ${newRows.map(r=>r.id).join(', ') || 'none'}  Updated IDs: ${changedRows.map(r=>r.id).join(', ') || 'none'}`,
+      sql: `-- MERGE WHEN NOT MATCHED AND change_type='insert'\nINSERT INTO snapshots.orders_snapshot\n  (order_id, status, amount, updated_at,\n   dbt_scd_id, dbt_updated_at, dbt_valid_from, dbt_valid_to)\nSELECT\n  order_id, status, amount, updated_at,\n  MD5(...) AS dbt_scd_id,\n  updated_at AS dbt_updated_at,\n  updated_at AS dbt_valid_from,\n  NULL AS dbt_valid_to\nFROM staging_insertions;`,
+      action: 'insert',
+      newRows, changedRows, runDate
+    });
+  }
+
+  if (deletedIds.length > 0 && currentOpts.hard_deletes !== 'ignore') {
+    if (currentOpts.hard_deletes === 'new_record') {
+      steps.push({
+        label: `Hard delete: insert deletion record for ID(s) ${deletedIds.join(', ')}`,
+        note: 'dbt_is_deleted = True inserted as a new record; previous row closed',
+        sql: `-- hard_deletes: 'new_record'\n-- 1) close the current row\nUPDATE snapshots.orders_snapshot\nSET dbt_valid_to = '${runDate}'\nWHERE order_id IN (${deletedIds.join(',')}) AND dbt_valid_to IS NULL;\n\n-- 2) insert deletion marker\nINSERT INTO snapshots.orders_snapshot\nSELECT snap.*, True AS dbt_is_deleted\nFROM snapshots.orders_snapshot snap\nWHERE snap.order_id IN (${deletedIds.join(',')});`,
+        action: 'hard_delete',
+        ids: deletedIds, runDate
+      });
+    } else if (currentOpts.hard_deletes === 'invalidate') {
+      steps.push({
+        label: `Hard delete (invalidate): close row for ID(s) ${deletedIds.join(', ')}`,
+        note: 'dbt_valid_to set — no deletion record inserted',
+        sql: `-- hard_deletes: 'invalidate'\n-- closes the current row without adding a new deletion record\nUPDATE snapshots.orders_snapshot\nSET dbt_valid_to = '${runDate}'\nWHERE order_id IN (${deletedIds.join(',')}) AND dbt_valid_to IS NULL;`,
+        action: 'invalidate_delete',
+        ids: deletedIds, runDate
+      });
+    }
+  }
+
+  if (newRows.length === 0 && changedRows.length === 0 && deletedIds.length === 0) {
+    steps.push({
+      label: 'No changes detected — snapshot unchanged',
+      note: 'All rows identical to previous run',
+      sql: `-- staging CTE finds 0 inserts, 0 updates\n-- MERGE touches 0 rows`,
+      action: null
+    });
+  }
+
+  steps.push({
+    label: 'Run complete',
+    note: `Snapshot has ${snapshotTable.length + (newRows.length + changedRows.length)} rows total`,
+    sql: `-- SELECT count(*), sum(CASE WHEN dbt_valid_to IS NULL THEN 1 ELSE 0 END) AS current\n-- FROM snapshots.orders_snapshot`,
+    action: null
+  });
+
+  return steps;
+}
+
+// ═══════════════════════════════════════════════
+// SIM LOGIC
+// ═══════════════════════════════════════════════
+let steps = [];
+let applied = {};
+
+function resetSim() {
+  simStep = 0;
+  simRun = 0;
+  snapshotTable = [];
+  applied = {};
+  steps = buildSteps(0, currentStrategy, opts);
+  render();
+}
+
+function stepSim() {
+  if (simStep >= steps.length) {
+    if (simRun < RUNS.length - 1) {
+      simRun++;
+      simStep = 0;
+      steps = buildSteps(simRun, currentStrategy, opts);
+      applied = {};
+    } else {
+      return;
+    }
+  }
+  applyStep(simStep);
+  simStep++;
+  render();
+}
+
+function runAll() {
+  while (simStep < steps.length) {
+    applyStep(simStep);
+    simStep++;
+  }
+  render();
+}
+
+function applyStep(i) {
+  const s = steps[i];
+  if (!s || !s.action) return;
+
+  const source = RUNS[simRun];
+  const runDate = ['2024-01-03', '2024-01-06', '2024-01-09'][simRun];
+  const validTo = opts.dbt_valid_to_current ? '9999-12-31' : null;
+
+  if (s.action === 'first_insert') {
+    source.forEach(row => {
+      snapshotTable.push({
+        ...row,
+        dbt_scd_id: `md5_${row.id}_${row.updated_at}`,
+        dbt_updated_at: row.updated_at,
+        dbt_valid_from: row.updated_at,
+        dbt_valid_to: null,
+        dbt_is_deleted: false,
+        _state: 'new'
+      });
+    });
+  }
+
+  if (s.action === 'expire') {
+    s.ids.forEach(id => {
+      const row = snapshotTable.find(r => r.id === id && r.dbt_valid_to === null);
+      if (row) {
+        row.dbt_valid_to = runDate;
+        row._state = 'expired';
+      }
+    });
+  }
+
+  if (s.action === 'insert') {
+    const toInsert = [...(s.newRows || []), ...(s.changedRows || [])];
+    toInsert.forEach(row => {
+      snapshotTable.push({
+        ...row,
+        dbt_scd_id: `md5_${row.id}_${row.updated_at}`,
+        dbt_updated_at: row.updated_at,
+        dbt_valid_from: row.updated_at,
+        dbt_valid_to: null,
+        dbt_is_deleted: false,
+        _state: 'new'
+      });
+    });
+  }
+
+  if (s.action === 'hard_delete') {
+    s.ids.forEach(id => {
+      const lastRow = snapshotTable.find(r => r.id === id && r.dbt_valid_to === null);
+      if (lastRow) {
+        lastRow.dbt_valid_to = runDate;
+        lastRow._state = 'expired';
+        snapshotTable.push({
+          ...lastRow,
+          dbt_scd_id: `md5_${id}_del_${runDate}`,
+          dbt_valid_from: runDate,
+          dbt_valid_to: null,
+          dbt_is_deleted: true,
+          _state: 'deleted'
+        });
+      }
+    });
+  }
+
+  if (s.action === 'invalidate_delete') {
+    s.ids.forEach(id => {
+      const lastRow = snapshotTable.find(r => r.id === id && r.dbt_valid_to === null);
+      if (lastRow) {
+        lastRow.dbt_valid_to = runDate;
+        lastRow._state = 'expired';
+      }
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════
+function render() {
+  renderRunLabel();
+  renderTables();
+  renderSteps();
+  renderSQL();
+  updateButtons();
+}
+
+function renderRunLabel() {
+  const labels = ['Run 1 — First snapshot (2024-01-03)', 'Run 2 — Incremental (2024-01-06)', 'Run 3 — Incremental (2024-01-09)'];
+  document.getElementById('simRunLabel').textContent = labels[simRun];
+  document.getElementById('simStepCounter').textContent =
+    `Step ${Math.min(simStep, steps.length)} / ${steps.length}  ·  Run ${simRun + 1} / ${RUNS.length}`;
+}
+
+function renderTables() {
+  const area = document.getElementById('tableArea');
+  const showDeleted = opts.hard_deletes !== 'ignore';
+  const showCheckCols = currentStrategy === 'check';
+
+  const colsSource = ['id', 'status', 'amount', 'updated_at'];
+  const colsSnap = ['id', 'status', 'amount', 'dbt_valid_from', 'dbt_valid_to'];
+  if (showDeleted) colsSnap.push('dbt_is_deleted');
+
+  const sourceRows = RUNS[simRun];
+
+  // source table
+  let src = `<div class="dbt" style="margin-bottom:12px">
+    <div class="dbt-head">stg_orders (source — Run ${simRun + 1})</div>
+    <div class="dbt-cols">${colsSource.map(c => `<div class="dbt-col">${c}</div>`).join('')}</div>`;
+  sourceRows.forEach(row => {
+    src += `<div class="dbt-row"><div class="c">${row.id}</div><div class="c">${row.status}</div><div class="c">${row.amount}</div><div class="c">${row.updated_at}</div></div>`;
+  });
+  src += '</div>';
+
+  // arrow
+  src += `<div class="arrow-col"><span class="arr">↓</span><span class="arr-label">dbt snapshot</span></div>`;
+
+  // snapshot table
+  let snap = `<div class="dbt">
+    <div class="dbt-head">snapshots.orders_snapshot</div>
+    <div class="dbt-cols">${colsSnap.map(c => `<div class="dbt-col" style="${c.startsWith('dbt_')?'color:var(--teal)':''}">${c}</div>`).join('')}</div>`;
+
+  if (snapshotTable.length === 0) {
+    snap += `<div class="dbt-row"><div class="c" style="color:var(--dim);text-align:center;padding:10px">— table doesn't exist yet —</div></div>`;
+  } else {
+    snapshotTable.forEach(row => {
+      const cls = row._state === 'expired' ? 'r-exp' : row._state === 'deleted' ? 'r-del' : 'r-cur';
+      const validTo = row.dbt_valid_to || (opts.dbt_valid_to_current ? '9999-12-31' : '<span style="color:var(--teal)">NULL</span>');
+      snap += `<div class="dbt-row ${cls}">
+        <div class="c">${row.id}</div>
+        <div class="c">${row.status}</div>
+        <div class="c">${row.amount}</div>
+        <div class="c" style="color:var(--muted)">${row.dbt_valid_from}</div>
+        <div class="c" style="color:${row.dbt_valid_to ? 'var(--red)' : 'var(--teal)'}">${validTo}</div>
+        ${showDeleted ? `<div class="c" style="color:${row.dbt_is_deleted ? 'var(--purple)' : 'var(--muted)'}">${row.dbt_is_deleted ? 'True' : 'False'}</div>` : ''}
+      </div>`;
+    });
+  }
+  snap += '</div>';
+
+  area.innerHTML = src + snap;
+}
+
+function renderSteps() {
+  const area = document.getElementById('stepArea');
+  area.innerHTML = steps.map((s, i) => {
+    const cls = i < simStep ? 'done' : i === simStep ? 'active' : '';
+    return `<div class="step ${cls}">
+      <div class="step-label">${s.label}</div>
+      ${s.note ? `<div class="step-note">${s.note}</div>` : ''}
+      ${i < simStep ? `<div class="step-sql">${s.sql}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderSQL() {
+  const s = currentStrategy;
+  const hd = opts.hard_deletes;
+  const vc = opts.dbt_valid_to_current;
+  const checkCols = opts.check_cols || 'specific';
+
+  let yaml = `snapshots:
+  - name: orders_snapshot
+    relation: ref('stg_orders')
+    config:
+      schema:     snapshots
+      unique_key: order_id
+      strategy:   ${s === 'ts' ? 'timestamp' : 'check'}
+`;
+  if (s === 'ts') {
+    yaml += `      updated_at: updated_at\n`;
+  } else {
+    yaml += checkCols === 'all'
+      ? `      check_cols: all\n`
+      : `      check_cols:\n        - status\n        - amount\n`;
+  }
+  if (hd !== 'ignore') yaml += `      hard_deletes: '${hd}'\n`;
+  if (vc) yaml += `      dbt_valid_to_current: '9999-12-31'\n`;
+
+  document.getElementById('genSQL').textContent = yaml;
+}
+
+function updateButtons() {
+  const done = simRun >= RUNS.length - 1 && simStep >= steps.length;
+  document.getElementById('runBtn').disabled = done;
+  document.getElementById('allBtn').disabled = done;
+}
+
+// ═══════════════════════════════════════════════
+// TOGGLES
+// ═══════════════════════════════════════════════
+function renderToggles() {
+  const area = document.getElementById('simToggles');
+  const s = currentStrategy;
+
+  let html = '';
+
+  if (s === 'check') {
+    html += `<div class="toggle-group">
+      <label>check_cols</label>
+      <select onchange="setOpt('check_cols', this.value); resetSim()">
+        <option value="specific" ${opts.check_cols==='specific'?'selected':''}>specific (status, amount)</option>
+        <option value="all" ${opts.check_cols==='all'?'selected':''}>all</option>
+      </select>
+    </div>`;
+  }
+
+  html += `<div class="toggle-group">
+    <label>hard_deletes</label>
+    <select onchange="setOpt('hard_deletes', this.value); resetSim()">
+      <option value="ignore" ${opts.hard_deletes==='ignore'?'selected':''}>ignore (default)</option>
+      <option value="new_record" ${opts.hard_deletes==='new_record'?'selected':''}>new_record</option>
+      <option value="invalidate" ${opts.hard_deletes==='invalidate'?'selected':''}>invalidate</option>
+    </select>
+  </div>`;
+
+  html += `<div class="toggle-group">
+    <label>dbt_valid_to_current</label>
+    <label class="switch">
+      <input type="checkbox" ${opts.dbt_valid_to_current?'checked':''} onchange="setOpt('dbt_valid_to_current', this.checked); resetSim()">
+      <span class="slider"></span>
+    </label>
+    <span style="font-size:.75rem;color:var(--muted)">${opts.dbt_valid_to_current ? "'9999-12-31'" : 'NULL'}</span>
+  </div>`;
+
+  area.innerHTML = html;
+}
+
+function setOpt(key, val) { opts[key] = val; }
+
+function selectStrategy(s) {
+  currentStrategy = s;
+  opts = { ...STRATS[s].defaultOpts };
+  document.querySelectorAll('.strat-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.s === s);
+    t.setAttribute('aria-selected', t.dataset.s === s);
+  });
+  renderToggles();
+  resetSim();
+}
+
+// ═══════════════════════════════════════════════
+// SCENARIOS
+// ═══════════════════════════════════════════════
+function renderScenarios() {
+  const grid = document.getElementById('scenarioGrid');
+  grid.innerHTML = SCENARIOS.map((sc, i) => `
+    <div class="perm-card" onclick="loadScenario(${i})">
+      <div class="perm-badge" style="background:${sc.badgeColor}20;color:${sc.badgeColor}">${sc.badge}</div>
+      <div class="perm-title">${sc.title}</div>
+      <div class="perm-sub">${sc.sub}</div>
+    </div>
+  `).join('');
+}
+
+function loadScenario(i) {
+  const sc = SCENARIOS[i];
+  currentStrategy = sc.strategy;
+  opts = { ...sc.opts };
+  document.querySelectorAll('.strat-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.s === sc.strategy);
+    t.setAttribute('aria-selected', t.dataset.s === sc.strategy);
+  });
+  renderToggles();
+  resetSim();
+  document.getElementById('s-sim').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ═══════════════════════════════════════════════
+// QUIZ
+// ═══════════════════════════════════════════════
+let quizIdx = 0, quizScore = 0, quizAnswered = false;
+
+function renderQuiz() {
+  const wrap = document.getElementById('quizWrap');
+  if (quizIdx >= QUIZ_QUESTIONS.length) {
+    wrap.innerHTML = `
+      <div class="q-score show">
+        <div class="score-n">${quizScore}/${QUIZ_QUESTIONS.length}</div>
+        <div style="color:var(--muted);margin-top:8px">${quizScore >= 6 ? 'Excellent! You understand dbt snapshots well.' : quizScore >= 4 ? 'Good — review the pitfalls section for the ones you missed.' : 'Review the simulator and strategies sections and try again.'}</div>
+        <button class="run-btn secondary" style="margin-top:16px" onclick="quizIdx=0;quizScore=0;quizAnswered=false;renderQuiz()">Retry</button>
+      </div>`;
+    return;
+  }
+  const q = QUIZ_QUESTIONS[quizIdx];
+  wrap.innerHTML = `
+    <div class="q-prog">Question ${quizIdx + 1} of ${QUIZ_QUESTIONS.length}</div>
+    <div class="q-text">${q.q}</div>
+    <div class="q-opts">${q.opts.map((o, i) => `
+      <button class="q-opt" id="qo${i}" onclick="answerQuiz(${i})">${o}</button>
+    `).join('')}</div>
+    <div class="q-fb" id="qfb"></div>
+    <button class="run-btn secondary" id="qnext" style="display:none" onclick="quizIdx++;quizAnswered=false;renderQuiz()">Next →</button>`;
+}
+
+function answerQuiz(i) {
+  if (quizAnswered) return;
+  quizAnswered = true;
+  const q = QUIZ_QUESTIONS[quizIdx];
+  document.querySelectorAll('.q-opt').forEach((b, j) => {
+    b.disabled = true;
+    if (j === q.correct) b.classList.add('correct');
+    else if (j === i) b.classList.add('wrong');
+  });
+  const fb = document.getElementById('qfb');
+  fb.className = `q-fb show ${i === q.correct ? 'ok' : 'err'}`;
+  fb.textContent = q.fb;
+  if (i === q.correct) quizScore++;
+  document.getElementById('qnext').style.display = 'inline-flex';
+}
+
+// ═══════════════════════════════════════════════
+// POINT-IN-TIME DEMO
+// ═══════════════════════════════════════════════
+// Full snapshot state after all 3 runs (IDs 1,2,3,4; row 3 deleted in run 3)
+const FULL_SNAPSHOT = [
+  { id: 1, status: 'pending',  amount: 100, dbt_valid_from: '2024-01-01', dbt_valid_to: '2024-01-05' },
+  { id: 1, status: 'shipped',  amount: 100, dbt_valid_from: '2024-01-05', dbt_valid_to: null },
+  { id: 2, status: 'pending',  amount: 200, dbt_valid_from: '2024-01-02', dbt_valid_to: '2024-01-08' },
+  { id: 2, status: 'returned', amount: 200, dbt_valid_from: '2024-01-08', dbt_valid_to: null },
+  { id: 3, status: 'shipped',  amount: 150, dbt_valid_from: '2024-01-01', dbt_valid_to: null },
+  { id: 4, status: 'pending',  amount: 75,  dbt_valid_from: '2024-01-04', dbt_valid_to: '2024-01-07' },
+  { id: 4, status: 'shipped',  amount: 75,  dbt_valid_from: '2024-01-07', dbt_valid_to: null },
+];
+
+function renderPIT() {
+  const date = document.getElementById('pitDate').value;
+  const mode = document.getElementById('pitNullMode').value;
+  const area = document.getElementById('pitResult');
+
+  const matched = FULL_SNAPSHOT.filter(r => {
+    const afterFrom = r.dbt_valid_from <= date;
+    const sentinel = '9999-12-31';
+    if (mode === 'wrong') {
+      // Missing IS NULL — only rows with explicit valid_to > date
+      return afterFrom && r.dbt_valid_to !== null && r.dbt_valid_to > date;
+    } else if (mode === 'sentinel') {
+      const vt = r.dbt_valid_to || sentinel;
+      return afterFrom && vt > date;
+    } else {
+      // correct: OR IS NULL
+      return afterFrom && (r.dbt_valid_to === null || r.dbt_valid_to > date);
+    }
+  });
+
+  const allRows = FULL_SNAPSHOT.filter(r => r.dbt_valid_from <= date);
+  const isWrong = mode === 'wrong';
+  const missingIds = isWrong
+    ? FULL_SNAPSHOT.filter(r => r.dbt_valid_to === null && r.dbt_valid_from <= date)
+        .map(r => r.id).filter(id => !matched.find(m => m.id === id))
+    : [];
+
+  let sql = '';
+  if (mode === 'null') {
+    sql = `SELECT * FROM orders_snapshot\nWHERE dbt_valid_from <= '${date}'\n  AND (dbt_valid_to > '${date}' OR dbt_valid_to IS NULL)`;
+  } else if (mode === 'sentinel') {
+    sql = `SELECT * FROM orders_snapshot\nWHERE '${date}' BETWEEN dbt_valid_from AND dbt_valid_to\n-- requires dbt_valid_to_current = '9999-12-31'`;
+  } else {
+    sql = `SELECT * FROM orders_snapshot\nWHERE dbt_valid_from <= '${date}'\n  AND dbt_valid_to > '${date}'\n-- ❌ missing OR dbt_valid_to IS NULL`;
+  }
+
+  let html = `<pre style="font-size:.76rem;margin-bottom:12px">${sql}</pre>`;
+
+  if (matched.length === 0) {
+    html += `<div class="note warn"><strong>No rows returned</strong> — the snapshot table didn't exist yet on ${date} (first run is 2024-01-03).</div>`;
+  } else {
+    html += `<div class="dbt"><div class="dbt-head">Result: ${matched.length} row(s) as of ${date}</div>
+      <div class="dbt-cols">
+        <div class="dbt-col">id</div>
+        <div class="dbt-col">status</div>
+        <div class="dbt-col">amount</div>
+        <div class="dbt-col">dbt_valid_from</div>
+        <div class="dbt-col">dbt_valid_to</div>
+      </div>`;
+    matched.forEach(r => {
+      html += `<div class="dbt-row r-cur">
+        <div class="c">${r.id}</div>
+        <div class="c">${r.status}</div>
+        <div class="c">${r.amount}</div>
+        <div class="c" style="color:var(--muted)">${r.dbt_valid_from}</div>
+        <div class="c" style="color:${r.dbt_valid_to ? 'var(--red)' : 'var(--teal)'}">${r.dbt_valid_to || 'NULL'}</div>
+      </div>`;
+    });
+    html += '</div>';
+    if (isWrong && missingIds.length > 0) {
+      html += `<div class="note danger" style="margin-top:10px"><strong>Missing IDs: ${missingIds.join(', ')}</strong> — these are currently-active rows (dbt_valid_to = NULL). The missing <code>OR dbt_valid_to IS NULL</code> dropped them silently.</div>`;
+    } else if (!isWrong) {
+      html += `<div class="note ok" style="margin-top:10px"><strong>${matched.length} row(s) returned</strong> — one per unique entity active on ${date}.</div>`;
+    }
+  }
+
+  area.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════
+// SIDENAV + PROGRESS
+// ═══════════════════════════════════════════════
+const SECTIONS = [
+  { id: 's-concept',  label: 'Concept' },
+  { id: 's-sim',      label: 'Simulator' },
+  { id: 's-meta',     label: 'Metadata' },
+  { id: 's-strat',    label: 'Strategies' },
+  { id: 's-compiled', label: 'Compiled SQL' },
+  { id: 's-scenarios',label: 'Scenarios' },
+  { id: 's-pitfalls', label: 'Pitfalls' },
+  { id: 's-pit',      label: 'Point-in-time' },
+  { id: 's-bi',       label: 'BI tools' },
+  { id: 's-quiz',     label: 'Quiz' },
+];
+
+function initNav() {
+  const nav = document.getElementById('sidenav');
+  nav.innerHTML = SECTIONS.map(s =>
+    `<div class="snav-item" onclick="document.getElementById('${s.id}').scrollIntoView({behavior:'smooth'})">
+      <div class="snav-dot"></div>
+      <div class="snav-label">${s.label}</div>
+    </div>`
+  ).join('');
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      const idx = SECTIONS.findIndex(s => s.id === e.target.id);
+      if (idx >= 0) nav.children[idx].classList.toggle('on', e.isIntersecting);
+    });
+  }, { threshold: 0.3 });
+
+  SECTIONS.forEach(s => {
+    const el = document.getElementById(s.id);
+    if (el) observer.observe(el);
+  });
+
+  window.addEventListener('scroll', () => {
+    const h = document.documentElement.scrollHeight - window.innerHeight;
+    document.getElementById('prog-fill').style.width = (window.scrollY / h * 100) + '%';
+  });
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+(function init() {
+  renderToggles();
+  resetSim();
+  renderScenarios();
+  renderQuiz();
+  renderPIT();
+  initNav();
+})();
+</script>
+</body>
+</html>
